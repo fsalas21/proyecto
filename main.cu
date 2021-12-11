@@ -185,11 +185,9 @@ int main(int argc, char **argv){
       sprintf(filename, "archivos/transmition_CPU_%03d.txt", i);
       Write(Ahost, Nx, Ny, filename);
 		}
-
-      // save_png(Ahost, Nx, Ny, filename, 'c');
     swap(Ahost, Ahostp1);
-    
-    }
+
+  }
 
   t2 = clock();
   ms = 1000.0 * (double)(t2 - t1) / CLOCKS_PER_SEC;
