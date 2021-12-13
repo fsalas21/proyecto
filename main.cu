@@ -122,6 +122,34 @@ __global__ void KernelGPU(const float* array, float* arrayp1, const int Nx, cons
 
 }
 
+/*
+ *  Kernel 2 (Shared Memory)
+ */
+__global__ void KernelGPU2(const float* array, float* arrayp1, const int Nx, const int Ny, const float dx2, const float dy2, const float alpha, const float dt){
+
+  __shared__ float s_Array[block_size_x + 2][block_size_y +2];
+
+  //Filas y columnas del bloque
+  int row = threadIdx.x + blockIdx.x*blockDim.x;
+  int col = threadIdx.y + blockIdx.y*blockDim.y;
+
+  //Fila y columna de la memoria compartida
+  int i = threadIdx.x + 1; // sin contar el borde superior 
+  int j = threadIdx.y + 1; // sin contar el borde izquierdo 
+  int ny = block_size_y +2; // Cantidad de columnas del sub-placa
+
+  //Rellenar memoria compartida
+  //Cuadro central
+  s_Array[getIndex(i,j,ny)] = array[getIndex(row,col,ny)];
+
+
+
+
+
+
+
+}
+
 
 /*
  *  Codigo Principal
@@ -180,7 +208,7 @@ int main(int argc, char **argv){
 //----------------------- CPU ------------------------
   t1 = clock();
   
-  for (int n = 0; n <= t; n++){
+  /*for (int n = 0; n <= t; n++){
     
     Heat_transmition(Ahost, Ahostp1, Nx, Ny, alpha, dx, dy, dt);
     
@@ -193,7 +221,7 @@ int main(int argc, char **argv){
 		}
     swap(Ahost, Ahostp1);
 
-  }
+  }*/
 
   t2 = clock();
   ms = 1000.0 * (double)(t2 - t1) / CLOCKS_PER_SEC;
@@ -212,14 +240,11 @@ int main(int argc, char **argv){
   cudaMemcpy(Bhost, AhostGPU, nElements*sizeof(float), cudaMemcpyHostToDevice);
   cudaMemcpy(Bhostp1, AhostGPU, nElements*sizeof(float), cudaMemcpyHostToDevice);
 
-  // dim3 gs(Nx/block_size_x + 1, Ny/block_size_y +1); //gs
-  // dim3 bs(block_size_x, block_size_y); // bs
+  dim3 gs(Nx/block_size_x + 1, Ny/block_size_y +1); //gs
+  dim3 bs(block_size_x, block_size_y); // bs
 
-  // printf("GS: {%d %d %d}\n", gs.x, gs.y, gs.z);
-  // printf("BS: {%d %d %d}\n", bs.x, bs.y, bs.z);
-
-  int gs = Nx;
-  int bs = Ny;
+  printf("GS: {%d %d %d}\n", gs.x, gs.y, gs.z);
+  printf("BS: {%d %d %d}\n", bs.x, bs.y, bs.z);
 
   // printf("GS: %d\n", gs);
 
@@ -230,7 +255,7 @@ int main(int argc, char **argv){
   cudaEventRecord(ct1);
   for (int n = 0; n <= t; n++){
 
-    KernelGPU<<<gs, bs>>>(Bhost, Bhostp1, Nx, Ny, dx2, dy2, alpha, dt);
+    KernelGPU2<<<gs, bs>>>(Bhost, Bhostp1, Nx, Ny, dx2, dy2, alpha, dt);
     // Printea el arreglo cada 20 iteraciones.
 		if (n % outputEveryTime == 0){
       cudaMemcpy(AhostGPU, Bhost, nElements*sizeof(float), cudaMemcpyDeviceToHost);
