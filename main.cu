@@ -70,52 +70,58 @@ void Write(float* arr, int Nx, int Ny, const char *filename) {
  */
 __global__ void KernelGPU(const float* array, float* arrayp1, const int Nx, const int Ny, const float dx2, const float dy2, const float alpha, const float dt){
 
-  __shared__ float s_Array[(block_size_x + 2)*(block_size_y + 2)];
+  // __shared__ float s_Array[(block_size_x + 2)*(block_size_y + 2)];
+
+  // int s_i = threadIdx.x + 1;
+  // int s_j = threadIdx.y + 1;
+  // int s_ny = block_size_y + 2;
+
+  // // Cuadrado central
+  // s_Array[getIndex(s_i,s_j,s_ny)] = array[getIndex(i,j,Ny)];
+
+  // // Borde superior
+  // if (s_i == 1 && s_j != 1 && i != 0){
+  //   s_Array[getIndex(0, s_j, s_ny)] = array[getIndex(blockIdx.x*blockDim.x - 1, j, Ny)];
+  // }
+
+  // // Borde inferior
+  // if (s_i == block_size_x && s_j != block_size_y && i != Nx -1){
+  //   s_Array[getIndex(block_size_x + 1, s_j, s_ny)] = array[getIndex((blockIdx.x + 1)*blockDim.x, j, Ny)];
+  // }
+
+  // // Borde izquierdo
+  // if (s_i != 1 && s_j==1 && j != 0){
+  //   s_Array[getIndex(s_i, 0, s_ny)] = array[getIndex(i, blockIdx.y*blockDim.y -1, Ny)]; 
+  // }
+
+  // // Borde derecho
+  // if (s_i != block_size_x && s_j == block_size_y && j != Ny-1){
+  //   s_Array[getIndex(s_i, block_size_y+1, s_ny)] = array[getIndex(i, (blockIdx.y + 1)*blockDim.y, Ny)];
+  // }
+
   int i = threadIdx.x + blockIdx.x*blockDim.x;
-  int j = threadIdx.y + blockIdx.y*blockDim.y;
-
-  int s_i = threadIdx.x + 1;
-  int s_j = threadIdx.y + 1;
-  int s_ny = block_size_y + 2;
-
-  // Cuadrado central
-  s_Array[getIndex(s_i,s_j,s_ny)] = array[getIndex(i,j,Ny)];
-
-  // Borde superior
-  if (s_i == 1 && s_j != 1 && i != 0){
-    s_Array[getIndex(0, s_j, s_ny)] = array[getIndex(blockIdx.x*blockDim.x - 1, j, Ny)];
-  }
-
-  // Borde inferior
-  if (s_i == block_size_x && s_j != block_size_y && i != Nx -1){
-    s_Array[getIndex(block_size_x + 1, s_j, s_ny)] = array[getIndex((blockIdx.x + 1)*blockDim.x, j, Ny)];
-  }
-
-  // Borde izquierdo
-  if (s_i != 1 && s_j==1 && j != 0){
-    s_Array[getIndex(s_i, 0, s_ny)] = array[getIndex(i, blockIdx.y*blockDim.y -1, Ny)]; 
-  }
-
-  // Borde derecho
-  if (s_i != block_size_x && s_j == block_size_y && j != Ny-1){
-    s_Array[getIndex(s_i, block_size_y+1, s_ny)] = array[getIndex(i, (blockIdx.y + 1)*blockDim.y, Ny)];
-  }
-
-
   if (i > 0 && i < Nx - 1){
+    int j = threadIdx.y + blockIdx.y*blockDim.y;
     if (j > 0 && j < Ny - 1){
-      float u_ij   = s_Array[getIndex(s_i, s_j, s_ny)];
-      float u_im1j = s_Array[getIndex(s_i - 1, s_j, s_ny)];
-      float u_ip1j = s_Array[getIndex(s_i + 1, s_j, s_ny)];
-      float u_ijm1 = s_Array[getIndex(s_i, s_j - 1, s_ny)];
-      float u_ijp1 = s_Array[getIndex(s_i, s_j + 1, s_ny)];
+      // float u_ij   = array[getIndex(s_i, s_j, s_ny)];
+      // float u_im1j = array[getIndex(s_i - 1, s_j, s_ny)];
+      // float u_ip1j = array[getIndex(s_i + 1, s_j, s_ny)];
+      // float u_ijm1 = array[getIndex(s_i, s_j - 1, s_ny)];
+      // float u_ijp1 = array[getIndex(s_i, s_j + 1, s_ny)];
+
+      float u_ij = array[getIndex(i,j,Ny)];
+      float u_im1j = array[getIndex(i-1, j, Ny)];
+      float u_ip1j = array[getIndex(i+1, j, Ny)];
+      float u_ijm1 = array[getIndex(i, j-1, Ny)];
+      float u_ijp1 = array[getIndex(i, j+1, Ny)];
 
       arrayp1[getIndex(i, j, Ny)] = u_ij + alpha * dt * ( (u_im1j - 2.0*u_ij + u_ip1j)/dx2 + (u_ijm1 - 2.0*u_ij + u_ijp1)/dy2 );
     }
   }
-  __syncthreads();
+  // __syncthreads();
 
 }
+
 
 /*
  *  Codigo Principal
@@ -134,7 +140,7 @@ int main(int argc, char **argv){
   const int Nx = 200; // 10 metros, largo de la barra
   const int Ny = 200; // 10 metros, ancho de la barra
 
-  const float alpha = 0.5; // depende del material
+  const float alpha = 0.9; // depende del material
 
   const float dx = 0.01; // [m] = 1 [cm] -> 1000 [cm] = 10 [m]
   const float dy = 0.01;
@@ -145,11 +151,11 @@ int main(int argc, char **argv){
   const float dt = dx2*dy2 / (2.0 * alpha * (dx2 + dy2)); // delta tiempo
   // float dt = 0.00001;
 
-  const int t = 1000; // cantidad de iteraciones
+  const int t = 5000; // cantidad de iteraciones
   const int outputEveryTime = 100;
 
   float Tedge = 25.0;
-  float Tcenter = 200.0;
+  float Tcenter = 500.0;
   // float radius = 5;
   float radius = (Nx/6.0) * (Nx/6.0); //m 
 
@@ -177,7 +183,7 @@ int main(int argc, char **argv){
   for (int n = 0; n <= t; n++){
     
     Heat_transmition(Ahost, Ahostp1, Nx, Ny, alpha, dx, dy, dt);
-
+    
     // Printea el arreglo cada 20 iteraciones.
 		if (n % outputEveryTime == 0){
       int i = n/outputEveryTime;
@@ -193,7 +199,7 @@ int main(int argc, char **argv){
   ms = 1000.0 * (double)(t2 - t1) / CLOCKS_PER_SEC;
   printf("\nTiempo CPU: %f[ms]\n", ms);
 
-//--------------------- kernel ------------------------
+//-------------------- kernel 1 -----------------------
 //---------------- variables de GPU -------------------
 
 
@@ -206,8 +212,16 @@ int main(int argc, char **argv){
   cudaMemcpy(Bhost, AhostGPU, nElements*sizeof(float), cudaMemcpyHostToDevice);
   cudaMemcpy(Bhostp1, AhostGPU, nElements*sizeof(float), cudaMemcpyHostToDevice);
 
-  dim3 gs(Nx/block_size_x + 1, Ny/block_size_y +1); //gs
-  dim3 bs(block_size_x, block_size_y); // bs
+  // dim3 gs(Nx/block_size_x + 1, Ny/block_size_y +1); //gs
+  // dim3 bs(block_size_x, block_size_y); // bs
+
+  // printf("GS: {%d %d %d}\n", gs.x, gs.y, gs.z);
+  // printf("BS: {%d %d %d}\n", bs.x, bs.y, bs.z);
+
+  int gs = Nx;
+  int bs = Ny;
+
+  // printf("GS: %d\n", gs);
 
   // float* Ahostgpu = new float[nElements];
 
@@ -219,8 +233,6 @@ int main(int argc, char **argv){
     KernelGPU<<<gs, bs>>>(Bhost, Bhostp1, Nx, Ny, dx2, dy2, alpha, dt);
     // Printea el arreglo cada 20 iteraciones.
 		if (n % outputEveryTime == 0){
-      
-
       cudaMemcpy(AhostGPU, Bhost, nElements*sizeof(float), cudaMemcpyDeviceToHost);
 
       int i = n/outputEveryTime;
